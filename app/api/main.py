@@ -15,6 +15,8 @@ from .language.router import router as language_router
 from .project.target_routes import target_router
 from .assets.router import assets_router
 from .user.routes import user_router
+from .auth.youtube_router import router as youtube_router
+from .project.publish_router import publish_router
 
 api_router = APIRouter(prefix="/api")
 
@@ -35,3 +37,5 @@ api_router.include_router(language_router)
 api_router.include_router(user_router)
 api_router.include_router(target_router)
 api_router.include_router(assets_router)
+api_router.include_router(youtube_router)
+api_router.include_router(publish_router)

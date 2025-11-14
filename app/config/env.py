@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
+from pydantic import AnyHttpUrl
 
 load_dotenv()
 _raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
@@ -20,6 +21,10 @@ class Settings(BaseSettings):
     S3_BUCKET: str = os.getenv("AWS_S3_BUCKET", "dupilot-dev-media")
     AWS_REGION: str = os.getenv("AWS_REGION", "ap-northeast-2")
     INGEST_WORKDIR: str = os.getenv("INGEST_WORKDIR", "/tmp/dupilot-ingest")
-
+    GOOGLE_YT_CLIENT_ID: str
+    GOOGLE_YT_CLIENT_SECRET: str
+    GOOGLE_YT_REDIRECT_URI: str
+    ENCRYPTION_KEY: str
 
 settings = Settings()
+

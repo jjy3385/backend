@@ -7,6 +7,12 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
+import httpx
+from app.utils.crypto import cipher
+from bson import ObjectId
+import logging
+
+logger = logging.getLogger(__name__)
 
 from ...config.env import (
     SECRET_KEY,
@@ -15,7 +21,15 @@ from ...config.env import (
     REFRESH_TOKEN_EXPIRE_DAYS,
     GOOGLE_CLIENT_ID,
     GOOGLE_DEFAULT_ROLE,
+    settings
 )
+
+GOOGLE_YT_CLIENT_ID = settings.GOOGLE_YT_CLIENT_ID
+GOOGLE_YT_CLIENT_SECRET = settings.GOOGLE_YT_CLIENT_SECRET
+GOOGLE_YT_REDIRECT_URI = settings.GOOGLE_YT_REDIRECT_URI
+ENCRYPTION_KEY = settings.ENCRYPTION_KEY
+
+
 from ..deps import DbDep
 from .model import User, UserCreate, UserOut, TokenData
 
@@ -232,6 +246,83 @@ class AuthService:
             },
         )
 
+    async def link_youtube_account(self, user_id: str, code: str) -> dict:
+        logger.info("link_youtube_account: user=%s, code=%s", user_id, code)
+        token_resp = await self._exchange_code_for_tokens(code)
+        refresh_token = token_resp.get("refresh_token")
+        if not refresh_token:
+            raise HTTPException(400, "Google did not return refresh_token")
+        channel_info = await self._fetch_channel_info(token_resp["access_token"])
+
+        await self.collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {
+                "youtube_refresh_token": cipher.encrypt(refresh_token),
+                "youtube_channel_id": channel_info["id"],
+                "youtube_channel_title": channel_info["title"],
+                "youtube_linked_at": datetime.now(timezone.utc),
+            }}
+        )
+        return channel_info
+
+    async def unlink_youtube_account(self, user_id: str):
+        await self.collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$unset": {
+                "youtube_refresh_token": "", "youtube_channel_id": "",
+                "youtube_channel_title": "", "youtube_linked_at": ""
+            }}
+        )
+
+    async def get_youtube_status(self, user_id: str):
+        user = await self.collection.find_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "_id": 0,
+                "youtube_channel_id": 1,
+                "youtube_channel_title": 1,
+                "youtube_linked_at": 1,
+            },
+        )
+        return user or {}
+
+    async def _exchange_code_for_tokens(self, code: str) -> dict:
+        data = {
+            "client_id": GOOGLE_YT_CLIENT_ID,
+            "client_secret": GOOGLE_YT_CLIENT_SECRET,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": GOOGLE_YT_REDIRECT_URI,
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.post("https://oauth2.googleapis.com/token", data=data)
+            if resp.status_code >= 400:
+                error_text = resp.text
+                logger.error("--- GOOGLE API 400 ERROR ---")
+                logger.error("GOOGLE_YT_CLIENT_ID %s",GOOGLE_YT_CLIENT_ID)
+                logger.error("GOOGLE_YT_CLIENT_SECRET %s",GOOGLE_YT_CLIENT_SECRET)
+                logger.error("GOOGLE_YT_REDIRECT_URI %s",GOOGLE_YT_REDIRECT_URI)
+                logger.error("STATUS CODE: %s", resp.status_code)
+                logger.error("RAW RESPONSE BODY: %s", error_text)
+                logger.error("--- END OF ERROR ---")
+                resp.raise_for_status()
+            return resp.json()
+
+    async def _fetch_channel_info(self, access_token: str) -> dict:
+        async with httpx.AsyncClient(
+            headers={"Authorization": f"Bearer {access_token}"}
+        ) as client:
+            resp = await client.get(
+                "https://www.googleapis.com/youtube/v3/channels",
+                params={"part": "snippet", "mine": "true"}
+            )
+            resp.raise_for_status()
+            items = resp.json().get("items", [])
+            if not items:
+                raise HTTPException(400, "No YouTube channel found")
+            snippet = items[0]["snippet"]
+            return {"id": items[0]["id"], "title": snippet["title"]}
+
 
 async def get_current_user(db: DbDep, token: str = Depends(oauth2_scheme)) -> User:
     credentials_exception = HTTPException(
@@ -315,3 +406,4 @@ async def get_current_user_from_cookie(
 
     # [7] Pydantic 모델(UserOut)로 변환하여 반환
     return UserOut(**user)
+

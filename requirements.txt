@@ -87,3 +87,4 @@ watchfiles==1.1.1
 websockets==15.0.1
 yt-dlp>=2025.11.12
 moviepy==1.0.3
+cryptography==43.0.1
