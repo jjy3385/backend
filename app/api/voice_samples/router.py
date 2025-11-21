@@ -255,6 +255,8 @@ async def finish_voice_sample_upload(
         category=payload.category,
         tags=payload.tags,
         is_builtin=payload.is_builtin,
+        license_code=payload.license_code,
+        can_commercial_use=payload.can_commercial_use,
     )
 
     voice_sample = await service.create_voice_sample(data, current_user)

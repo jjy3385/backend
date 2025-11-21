@@ -77,6 +77,11 @@ class VoiceSampleService:
             "tags": _normalize_tags(getattr(data, "tags", None)),
             "is_builtin": data.is_builtin,
             "added_count": 0,
+            "license_code": getattr(data, "license_code", None) or "commercial",
+            "can_commercial_use": (
+                data.can_commercial_use if getattr(data, "can_commercial_use", None) is not None else True
+            ),
+            "is_deletable": not data.is_public,
         }
 
         try:
@@ -337,6 +342,8 @@ class VoiceSampleService:
             update_data["description"] = data.description
         if data.is_public is not None:
             update_data["is_public"] = data.is_public
+            if data.is_public:
+                update_data["is_deletable"] = False
         if data.audio_sample_url is not None:
             update_data["audio_sample_url"] = data.audio_sample_url
         if data.processed_file_path_wav is not None:
@@ -361,6 +368,10 @@ class VoiceSampleService:
             update_data["tags"] = _normalize_tags(data.tags)
         if data.is_builtin is not None:
             update_data["is_builtin"] = data.is_builtin
+        if getattr(data, "license_code", None) is not None:
+            update_data["license_code"] = data.license_code
+        if getattr(data, "can_commercial_use", None) is not None:
+            update_data["can_commercial_use"] = data.can_commercial_use
 
         if not update_data:
             # 업데이트할 데이터가 없으면 현재 상태 반환
@@ -445,6 +456,12 @@ class VoiceSampleService:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only delete your own voice samples",
+            )
+
+        if not sample.get("is_deletable", True):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This voice sample cannot be deleted after being shared publicly.",
             )
 
         try:

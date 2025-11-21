@@ -33,6 +33,8 @@ class VoiceSampleCreate(BaseModel):
     )
     tags: Optional[list[str] | str] = Field(default=None, description="자유 태그 목록")
     is_builtin: bool = Field(default=False, description="기본 제공 보이스 여부")
+    license_code: Optional[str] = Field(default="commercial", description="라이선스 코드 (cc0, cc-by, cc-by-nc 등)")
+    can_commercial_use: Optional[bool] = Field(default=True, description="상업적 사용 가능 여부")
 
 
 class VoiceSamplePrepareUpload(BaseModel):
@@ -62,6 +64,8 @@ class VoiceSampleFinishUpload(BaseModel):
     )
     tags: Optional[list[str] | str] = Field(default=None, description="자유 태그 목록")
     is_builtin: bool = Field(default=False, description="기본 제공 보이스 여부")
+    license_code: Optional[str] = Field(default="commercial", description="라이선스 코드 (cc0, cc-by, cc-by-nc 등)")
+    can_commercial_use: Optional[bool] = Field(default=True, description="상업적 사용 가능 여부")
 
 
 class VoiceSampleUpdate(BaseModel):
@@ -83,6 +87,8 @@ class VoiceSampleUpdate(BaseModel):
     category: Optional[list[str] | str] = None
     tags: Optional[list[str] | str] = None
     is_builtin: Optional[bool] = None
+    license_code: Optional[str] = None
+    can_commercial_use: Optional[bool] = None
 
 
 class VoiceSampleOut(BaseModel):
@@ -112,6 +118,9 @@ class VoiceSampleOut(BaseModel):
     )
     tags: Optional[list[str] | str] = Field(default=None, description="자유 태그 목록")
     is_builtin: bool = Field(default=False, description="기본 제공 보이스 여부")
+    license_code: Optional[str] = Field(default=None, description="라이선스 코드")
+    can_commercial_use: Optional[bool] = Field(default=None, description="상업적 사용 가능 여부")
+    is_deletable: bool = Field(default=True, description="삭제 가능 여부")
 
     class Config:
         populate_by_name = True
